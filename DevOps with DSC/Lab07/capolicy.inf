@@ -1,0 +1,16 @@
+[Version]
+Signature="`$Windows NT$"
+ 
+[PolicyStatementExtension]
+Policies=InternalUseOnly
+[InternalUseOnly]
+OID=2.5.29.32.0
+Notice="This CA is used for demo purposes"
+ 
+[Certsrv_Server]
+LoadDefaultTemplates=0
+AlternateSignatureAlgorithm=1
+ 
+[Extensions]
+2.5.29.15 = AwIBBg==
+Critical = 2.5.29.15
