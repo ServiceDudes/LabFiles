@@ -1,0 +1,87 @@
+.jh-root,
+.jh-type-object,
+.jh-type-array,
+.jh-key,
+.jh-value,
+.jh-root tr {
+  -webkit-box-sizing: border-box;
+  /* Safari/Chrome, other WebKit */
+  -moz-box-sizing: border-box;
+  /* Firefox, other Gecko */
+  box-sizing: border-box;
+  /* Opera/IE 8+ */
+  font-weight: normal;
+}
+.jh-key,
+.jh-value {
+  margin: 0;
+  padding: 0.2em;
+}
+.jh-value {
+  border-left: 1px solid #41535b;
+}
+.jh-type-number {
+  text-align: center;
+  color: #55b5db;
+}
+.jh-type-bool-true {
+  text-align: center;
+  color: #9fca56;
+}
+.jh-type-bool-false {
+  text-align: center;
+  color: #cd3f45;
+}
+.jh-type-bool-image {
+  width: 20px;
+  height: 20px;
+  margin-right: 5px;
+  vertical-align: bottom;
+}
+.jh-type-string {
+  color: #d4d7d6;
+}
+.jh-array-key {
+  font-size: small;
+  text-align: center;
+}
+.jh-object-key,
+.jh-array-key {
+  color: #55b5db;
+  vertical-align: top;
+}
+.jh-type-object > tbody > tr:nth-child(odd),
+.jh-type-array > tbody > tr:nth-child(odd) {
+  background-color: #151718;
+}
+.jh-type-object > tbody > tr:nth-child(even),
+.jh-type-array > tbody > tr:nth-child(even) {
+  background-color: #101213;
+}
+.jh-type-object,
+.jh-type-array {
+  width: 100%;
+  border-collapse: collapse;
+}
+.jh-root {
+  margin: 0.2em;
+}
+th.jh-key {
+  text-align: left;
+}
+.jh-empty {
+  font-style: italic;
+  color: #78817e;
+  font-size: small;
+}
+.jh-a {
+  text-decoration: none;
+}
+.jh-a:hover {
+  text-decoration: underline;
+}
+.jh-a span.jh-type-string {
+  text-decoration: none;
+  color: #55b5db;
+  font-style: normal;
+}

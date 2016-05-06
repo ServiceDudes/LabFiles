@@ -1,0 +1,16 @@
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+body {
+  font-family: 'Source Code Pro';
+  color: #929a97;
+  background-color: #151718;
+  width: 80%;
+  margin: 10%;
+  margin-top: 2em;
+}
+jh-root {
+  font-family: 'Source Code Pro';
+}
