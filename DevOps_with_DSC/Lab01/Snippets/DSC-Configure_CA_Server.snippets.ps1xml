@@ -1,0 +1,211 @@
+﻿<?xml version='1.0' encoding='utf-8' ?>
+    <Snippets  xmlns='http://schemas.microsoft.com/PowerShell/Snippets'>
+        <Snippet Version='1.0.0'>
+            <Header>
+                <Title>DSC-Configure_CA_Server</Title>
+                <Description>Configure a CA server with DSC</Description>
+                <Author></Author>
+                <SnippetTypes>
+                    <SnippetType>Expansion</SnippetType>
+                </SnippetTypes>
+            </Header>
+
+            <Code>
+                <Script Language='PowerShell' CaretOffset='0'>
+                    <![CDATA[Install-Module xAdcsDeployment -RequiredVersion 1.0.0.0
+
+$ConfigurationData = @{   
+    AllNodes = @(       
+        @{     
+            NodeName                    = "$env:COMPUTERNAME"
+            PSDscAllowPlainTextPassword = $true
+            PSDscAllowDomainUser        = $true
+            Role                        = "CertificateAuthority"                        
+            CAName                      = "FMRootCA"
+            CDPURL                      = "cdp.filemilk.net"
+            CONFIGURL                   = "config.filemilk.net"
+            CDPIP                       = "192.168.1.2"
+            CONFIGIP                    = "192.168.1.3"
+        } 
+    )  
+}
+
+Configuration Roles
+{
+    param 
+    (
+        [Parameter(Mandatory)] 
+        [pscredential]$Credential
+    ) 
+    
+    Import-DscResource –ModuleName PSDesiredStateConfiguration
+    Import-DscResource –ModuleName xAdcsDeployment -ModuleVersion 1.0.0.0
+    Import-DscResource -ModuleName xDnsServer -ModuleVersion 1.7.0.0
+
+    Node $AllNodes.Where{$_.Role -eq "CertificateAuthority"}.Nodename 
+    {  
+        xDnsServerADZone AddCDPZone
+        {
+            Name             = $Node.CDPURL
+            DynamicUpdate    = 'Secure'
+            ReplicationScope = 'Forest'
+            Credential       = $Credential
+            Ensure           = 'Present'
+        }
+        xDnsRecord AddCDPSameAsParentRecord
+        {
+            Name      = "."
+            Target    = $Node.CDPIP
+            Zone      = $Node.CDPURL
+            Type      = "ARecord"
+            Ensure    = "Present"
+            DependsOn = "[xDnsServerADZone]AddCDPZone"
+        }
+
+        xDnsServerADZone AddCONFIGZone
+        {
+            Name             = $Node.CONFIGURL
+            DynamicUpdate    = 'Secure'
+            ReplicationScope = 'Forest'
+            Credential       = $Credential
+            Ensure           = 'Present'
+        }
+        xDnsRecord AddCONFIGSameAsParentRecord
+        {
+            Name      = "."
+            Target    = $Node.CONFIGIP
+            Zone      = $Node.CONFIGURL
+            Type      = "ARecord"
+            Ensure    = "Present"
+            DependsOn = "[xDnsServerADZone]AddCDPZone"
+        }
+
+        File CreateCAPolicyINF #Get Contenf for this @GitHub
+        {
+            Ensure          = "Present"
+            DestinationPath = "C:\Windows\capolicy.inf"
+            Contents        = @"
+[Version]
+Signature="`$Windows NT$"
+ 
+[PolicyStatementExtension]
+Policies=InternalUseOnly
+[InternalUseOnly]
+OID=2.5.29.32.0
+Notice="This CA is used for demo purposes"
+ 
+[Certsrv_Server]
+LoadDefaultTemplates=0
+AlternateSignatureAlgorithm=1
+ 
+[Extensions]
+2.5.29.15 = AwIBBg==
+Critical = 2.5.29.15
+"@
+        }
+
+        WindowsFeature ADCS-Cert-Authority
+        {
+               Ensure               = 'Present'
+               Name                 = 'ADCS-Cert-Authority'
+               DependsOn            = "[File]CreateCAPolicyINF"
+        }
+        WindowsFeature RSAT-ADCS
+        {
+               Ensure               = 'Present'
+               Name                 = 'RSAT-ADCS'
+               DependsOn            = "[WindowsFeature]ADCS-Cert-Authority"
+        }
+        WindowsFeature RSAT-ADCS-Mgmt  
+        {
+               Ensure               = 'Present'
+               Name                 = 'RSAT-ADCS-Mgmt'
+               DependsOn            = "[WindowsFeature]RSAT-ADCS"
+        }
+
+        xADCSCertificationAuthority ADCS
+        {
+            Ensure                    = 'Present'
+            Credential                = $Credential
+            CACommonName              = $Node.CAName
+            CAType                    = 'EnterpriseRootCA'
+            CADistinguishedNameSuffix = 'o=cfg,O=filemilk,C=net'
+            HashAlgorithmName         = 'sha256'
+            ValidityPeriod            = 'Years' 
+            ValidityPeriodUnits       = '10'
+            CryptoProviderName        = 'RSA#Microsoft Software Key Storage Provider'
+            KeyLength                 = '4096'
+            DependsOn                 = '[WindowsFeature]ADCS-Cert-Authority'
+            OverwriteExistingKey      = $true
+        }
+        WindowsFeature Web-Server
+        {
+               Ensure    = 'Present'
+               Name      = 'Web-Server'
+               DependsOn = "[xADCSCertificationAuthority]ADCS"
+        }
+        Script ConfigureCASettings
+        {
+            GetScript  = { 
+                return "Placeholder"
+            }          
+            TestScript = { 
+                return (Test-Path 'c:\cdp')
+            }
+            SetScript  = { #Get This @GitHub
+                #region configure CA settings and prepare AIA / CDP
+                New-Item c:\CDP -ItemType directory -Force
+                Copy-Item C:\Windows\System32\CertSrv\CertEnroll\*.crt C:\CDP\$($using:Node.CAName).crt -Force
+                Get-CAAuthorityInformationAccess | Remove-CAAuthorityInformationAccess -Force
+                Get-CACrlDistributionPoint | Remove-CACrlDistributionPoint -Force
+                Add-CAAuthorityInformationAccess -Uri http://$($using:Node.CDPURL)/$($using:Node.CAName).crt -AddToCertificateAia -Force
+                Add-CACrlDistributionPoint -Uri C:\CDP\<CAName><CRLNameSuffix><DeltaCRLAllowed>.crl -PublishToServer -PublishDeltaToServer -Force
+                Add-CACrlDistributionPoint -Uri http://$($using:Node.CDPURL)/<CAName><CRLNameSuffix><DeltaCRLAllowed>.crl -AddToCertificateCdp -AddToFreshestCrl -Force
+                #endregion configure CA settings and prepare AIA / CDP
+ 
+                #region create CDP / AIA web site
+                Import-Module 'C:\Windows\system32\WindowsPowerShell\v1.0\Modules\WebAdministration\WebAdministration.psd1'
+                New-Website -Name CDP -HostHeader $($using:Node.CDPURL) -Port 80 -IPAddress * -Force
+                Set-ItemProperty 'IIS:\Sites\CDP' -Name physicalpath -Value C:\CDP
+                Set-WebConfigurationProperty -PSPath 'IIS:\Sites\CDP' -Filter /system.webServer/directoryBrowse  -Name enabled -Value true
+                Set-WebConfigurationProperty -PSPath 'IIS:\Sites\CDP' -Filter /system.webServer/security/requestfiltering  -Name allowDoubleEscaping -Value true
+                attrib +h C:\CDP\web.config
+                #endregion create CDP / AIA web site
+ 
+                #region restart CA service and publish CRL
+                Restart-Service -Name CertSvc
+                do
+                {
+                    Start-Sleep -Seconds 2
+                }
+                while ((Get-Service certsvc).Status -ne 'Running')
+                certutil -CRL
+                #endregion restart CA service and publish CRL
+ 
+                #region add webserver template
+                
+                $DN = (Get-ADDomain).DistinguishedName
+                $WebTemplate = "CN=WebServer,CN=Certificate Templates,CN=Public Key Services,CN=Services,CN=Configuration,$DN"
+                DSACLS $WebTemplate /G "Authenticated Users:CA;Enroll"
+ 
+                certutil -setcatemplates +WebServer
+                #endregion add webserver template
+            }
+            Credential = $Credential
+            DependsOn  = "[WindowsFeature]Web-Server"
+        }
+        
+    }
+}
+
+# Create MOF job
+Roles -OutputPath $env:TEMP -ConfigurationData $ConfigurationData -Credential (Get-Credential -UserName cfg\administrator -Message "Domain Admin Credential")
+
+# Run the MOF job
+Start-DscConfiguration -Path $env:TEMP -Wait -Force -Verbose]]>
+                </Script>
+            </Code>
+
+    </Snippet>
+</Snippets>
+

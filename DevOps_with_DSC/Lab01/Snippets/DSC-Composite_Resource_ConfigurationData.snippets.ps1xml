@@ -1,0 +1,113 @@
+﻿<?xml version='1.0' encoding='utf-8' ?>
+    <Snippets  xmlns='http://schemas.microsoft.com/PowerShell/Snippets'>
+        <Snippet Version='1.0.0'>
+            <Header>
+                <Title>DSC-Composite_Resource_ConfigurationData</Title>
+                <Description>DSC Composite Resource ConfigurationData</Description>
+                <Author></Author>
+                <SnippetTypes>
+                    <SnippetType>Expansion</SnippetType>
+                </SnippetTypes>
+            </Header>
+
+            <Code>
+                <Script Language='PowerShell' CaretOffset='0'>
+                    <![CDATA[Install-Module cChoco                       -RequiredVersion 2.2.0.66
+Install-Module xWebAdministration           -RequiredVersion 1.13.0.0
+Install-Module xPSDesiredStateConfiguration -RequiredVersion 3.13.0.0
+
+$ConfigurationData = @{
+
+    AllNodes = @(
+        @{
+            NodeName                     = "*"
+            DomainName                   = "cfg.filemilk.net"
+            InterfaceAlias               = "Ethernet"                 
+            AddressFamily                = "Ipv4"
+            DnsServerAddress             = @("192.168.1.2")
+        }        
+        @{
+            NodeName                     = "MBX01"
+            Role                         = "MailServer"
+            IPAddress                    = "192.168.1.4"
+            Applications                 = @(
+                @{
+                    Ensure               = "Present"
+                    Name                 = "7zip"
+                }
+            )
+            Packages                     = @(
+                @{
+                    Ensure               = "Present"
+                    Name                 = "hMailServer 5.6.4-B2283"
+                    Path                 = "C:\Temp\hMailServer-5.6.4-B2283.exe"
+                    ProductId            = ""
+                    Arguments            = "/VERYSILENT"
+                    URI                  = "https://www.hmailserver.com/download_file?downloadid=249"
+                }
+            )
+        }
+        @{
+            NodeName                     = "DEV01"
+            Role                         = "MemberServer"
+            IPAddress                    = "192.168.1.5"
+            Features                     = @(
+                @{
+                    Ensure               = "Present"
+                    Name                 = "Web-Mgmt-Console"
+                }
+            )
+        }
+    );
+
+    RoleDefinitions = 
+    @{
+        MemberServer                     = @(
+                @{
+                    Applications         = @(
+                        @{
+                            Ensure       = "Present"
+                            Name         = "bginfo"
+                        }
+                    )
+                }
+            )
+        WebServer                        = @(
+                @{
+                    Features             = @(
+                        @{
+                            Ensure       = "Present"
+                            Name         = "Web-Server"
+                        }
+                        @{
+                            Ensure       = "Present"
+                            Name         = "Web-Asp-Net45"
+                        }
+                    )
+                    Configuration        = @(
+                        @{
+                            Ensure       = "Present"
+                            Name         = "Default Web Site"
+                            PhysicalPath = "C:\inetpub\wwwroot"
+                        }
+                    )
+                }
+            )
+        DatabaseServer                   = @(
+                @{
+                    Application          = @(
+                        @{
+                            Ensure       = "Present"
+                            Name         = "mssqlserver2014express"
+                        }
+                    )
+                }
+            )
+     } 
+}]]>
+                </Script>
+            </Code>
+
+    </Snippet>
+</Snippets>
+

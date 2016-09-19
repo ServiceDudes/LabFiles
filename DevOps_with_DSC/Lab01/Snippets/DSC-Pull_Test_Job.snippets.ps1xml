@@ -1,0 +1,51 @@
+﻿<?xml version='1.0' encoding='utf-8' ?>
+    <Snippets  xmlns='http://schemas.microsoft.com/PowerShell/Snippets'>
+        <Snippet Version='1.0.0'>
+            <Header>
+                <Title>DSC-Pull_Test_Job</Title>
+                <Description>Create a DSC Pull server test job</Description>
+                <Author></Author>
+                <SnippetTypes>
+                    <SnippetType>Expansion</SnippetType>
+                </SnippetTypes>
+            </Header>
+
+            <Code>
+                <Script Language='PowerShell' CaretOffset='0'>
+                    <![CDATA[# Create a test job to verify pull service configuration on clients
+Configuration TestPullConfiguration {
+
+    Param(
+        [Parameter(Mandatory=$True)]
+        [String[]]$NodeGUID
+    )
+
+    Import-DscResource –ModuleName PSDesiredStateConfiguration
+    
+    Node $NodeGUID {
+
+        # Create local directory
+        File MyDirectory {
+            Ensure          = "Present"
+            Type            = "Directory"
+            DestinationPath = "C:\Temp"
+        }
+
+        # Create a file with text content
+        File MyFile{
+            Ensure          = "Present"
+            DestinationPath = "C:\Temp\PullServer.txt"
+            Contents        = "Test pull server mode"
+            DependsOn       = "[File]MyDirectory"
+        }
+
+    }
+}
+
+$PullSharePath = "C:\PullShare"]]>
+                </Script>
+            </Code>
+
+    </Snippet>
+</Snippets>
+

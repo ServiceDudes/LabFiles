@@ -1,0 +1,308 @@
+﻿<?xml version='1.0' encoding='utf-8' ?>
+    <Snippets  xmlns='http://schemas.microsoft.com/PowerShell/Snippets'>
+        <Snippet Version='1.0.0'>
+            <Header>
+                <Title>DSC-Composite_Resource_Demo</Title>
+                <Description>DSC Composite Resource demo</Description>
+                <Author></Author>
+                <SnippetTypes>
+                    <SnippetType>Expansion</SnippetType>
+                </SnippetTypes>
+            </Header>
+
+            <Code>
+                <Script Language='PowerShell' CaretOffset='0'>
+                    <![CDATA[Configuration ChocoApplication
+{
+    param 
+    (
+        [Parameter(Mandatory)] 
+        $Applications
+    )
+
+    Import-DscResource -ModuleName cChoco -ModuleVersion 2.2.0.66
+
+    cChocoInstaller installChoco
+    {
+        InstallDir = "c:\choco"
+    }
+
+    ForEach ($Application in $Applications)   
+    {
+        cChocoPackageInstaller $Application.Name.Replace(' ','')
+        {
+            Name      = $Application.Name
+            DependsOn = "[cChocoInstaller]installChoco"
+        }
+
+    }
+
+}
+
+Configuration PackageApplication
+{
+    param 
+    (
+        [Parameter(Mandatory)] 
+        $Applications
+    )
+
+    Import-DscResource –ModuleName xPSDesiredStateConfiguration -ModuleVersion 3.13.0.0
+
+    ForEach ($Application in $Applications)   
+    {
+
+        <#
+        If (-not(Test-Path -Path $Application.Path -ErrorAction Ignore))
+        {
+            $WebClient = New-Object System.Net.WebClient
+            $WebClient.DownloadFile($Application.URI, $Application.Path)
+        }
+        #>
+
+        xRemoteFile $Application.Name
+        {
+            Uri             = $Application.URI
+            DestinationPath = $Application.Path
+        }        
+
+        Package $Application.Name
+        {
+            Ensure     = $Application.Ensure
+            Name       = $Application.Name
+            Path       = $Application.Path
+            ProductId  = $Application.ProductId
+            Arguments  = $Application.Arguments
+            ReturnCode = 0
+            DependsOn  = "[xRemoteFile]$($Application.Name)"
+        }
+
+    }
+
+}
+
+Configuration WebServer
+{
+    param 
+    (
+        [Parameter(Mandatory)] 
+        [string]$Ensure,
+
+        [Parameter(Mandatory)] 
+        [string]$Name,
+
+        [Parameter(Mandatory)] 
+        [string]$PhysicalPath,
+
+        [Parameter(Mandatory)] 
+        $Features
+    )
+
+    Import-DscResource -ModuleName xWebAdministration -ModuleVersion 1.13.0.0
+
+    ForEach ($Feature in $Features)   
+    {
+        WindowsFeature $Feature.Name.Replace(' ','')
+        {
+            Ensure = $Feature.Ensure
+            Name   = $Feature.Name
+        }
+
+    }
+
+    File $Feature.Name.Replace(' ','')
+    {
+        Ensure          = $Feature.Ensure
+        Type            = "Directory"
+        DestinationPath = $Feature.PhysicalPath
+    }
+
+    xWebsite $Feature.Name.Replace(' ','')
+    {
+        Ensure          = $Ensure
+        Name            = $Name
+        State           = "Started"
+        PhysicalPath    = $Feature.PhysicalPath
+    }
+
+}
+
+Configuration BuildServer
+{
+
+    Param(
+        [Parameter(Mandatory=$True)]
+        [String[]]$ConfigurationName
+    )
+
+    Import-DscResource –ModuleName PSDesiredStateConfiguration
+
+    Node $ConfigurationName
+    {
+
+        If ($ConfigurationName.ToLower() -eq "memberserver")
+        {
+            $Applications = @($ConfigurationData.RoleDefinitions.MemberServer.Applications)
+
+            ChocoApplication "MemberServer"
+            {
+                Applications = $Applications
+            }
+
+        }
+
+        If ($ConfigurationName.ToLower() -eq "webserver")
+        {
+
+            $Features = @($ConfigurationData.RoleDefinitions.WebServer.Features)
+
+            WebServer $ConfigurationData.RoleDefinitions.WebServer.Configuration.Name.Replace(' ','')
+            {
+                Ensure       = $ConfigurationData.RoleDefinitions.WebServer.Configuration.Ensure
+                Name         = $ConfigurationData.RoleDefinitions.WebServer.Configuration.Name
+                PhysicalPath = $ConfigurationData.RoleDefinitions.WebServer.Configuration.PhysicalPath
+                Features     = $Features
+            }
+
+        }
+
+        If ($ConfigurationName.ToLower() -eq "databaseserver")
+        {
+
+            $Applications = @($ConfigurationData.RoleDefinitions.DatabaseServer.Application)
+
+            ChocoApplication "DatabaseServer"
+            {
+                Applications = $Applications
+            }
+
+        }
+
+    }
+
+    Node $AllNodes.Where{$_.NodeName -eq $ConfigurationName}.Nodename
+    {
+
+        ForEach ($Role in $Node.Role)
+        {
+
+            If ($ConfigurationData.RoleDefinitions[$Role].Applications)
+            {
+                
+                $Applications = @($ConfigurationData.RoleDefinitions[$Role].Applications)
+
+                ForEach ($Application in $Applications)   
+                {
+
+                    ChocoApplication $Application.Name.Replace(' ','')
+                    {
+                        Applications = $Applications
+                    }
+
+                }
+
+            }
+
+            If ($ConfigurationData.RoleDefinitions[$Role].Features)
+            {
+
+                $Features = @($ConfigurationData.RoleDefinitions[$Role].Features)
+
+                ForEach ($Feature in $Features)   
+                {
+
+                    WindowsFeature $Feature.Name.Replace(' ','')
+                    {
+                        Ensure = $Feature.Ensure
+                        Name   = $Feature.Name
+                    }
+
+                }
+
+                If ($Role.ToLower() -eq "webserver")
+                {
+
+                    File $ConfigurationData.RoleDefinitions[$Role].Configuration.Name.Replace(' ','')
+                    {
+                        Ensure          = $ConfigurationData.RoleDefinitions[$Role].Configuration.Ensure
+                        Type            = "Directory"
+                        DestinationPath = $ConfigurationData.RoleDefinitions[$Role].Configuration.PhysicalPath
+                    }
+
+                    xWebsite $ConfigurationData.RoleDefinitions[$Role].Configuration.Replace(' ','')
+                    {
+                        Ensure          = $ConfigurationData.RoleDefinitions[$Role].Configuration.Ensure
+                        Name            = $ConfigurationData.RoleDefinitions[$Role].Configuration.Name
+                        State           = "Started"
+                        PhysicalPath    = $ConfigurationData.RoleDefinitions[$Role].Configuration.PhysicalPath
+                    }
+
+                }
+
+            }
+
+        }
+
+        If ($Node.Applications)
+        {
+
+            $Applications = @($Node.Applications)
+
+            ChocoApplication "$env:COMPUTERNAME"
+            {
+                Applications = $Applications
+            }
+
+        }
+
+        If ($Node.Features)
+        {
+            foreach ($Feature in $Node.Features)
+            {
+
+                WindowsFeature $Feature.Name.Replace(' ','')
+                {
+                    Ensure = $Feature.Ensure
+                    Name   = $Feature.Name
+                }
+
+            }
+        }
+
+        If ($Node.Packages)
+        {
+
+            $Package = @($Node.Packages)
+
+            PackageApplication "$env:COMPUTERNAME"
+            {
+                Applications = $Package
+            }
+
+        }
+
+    }
+
+}
+
+# Define computers to create MOF jobs for
+$ConfigurationNames = @("MemberServer","WebServer","DatabaseServer","MBX01","DEV01")
+#$ConfigurationNames = @("MBX01")
+
+$PullShare = "C:\PullShare"
+
+# Create client unique GUID:s, Generate MO:s and create a CSV file with server names and GUID:s for reference
+ForEach ($ConfigurationName in $ConfigurationNames)
+{
+    BuildServer -ConfigurationName $ConfigurationName -OutputPath $PullShare -ConfigurationData $ConfigurationData
+    ise "$PullShare\$ConfigurationName.mof"
+}
+
+# Create checksum for MOF jobs
+New-DSCCheckSum -ConfigurationPath "C:\PullShare" -OutPath $PullShare -Verbose -Force]]>
+                </Script>
+            </Code>
+
+    </Snippet>
+</Snippets>
+

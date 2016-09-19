@@ -1,0 +1,91 @@
+﻿<?xml version='1.0' encoding='utf-8' ?>
+    <Snippets  xmlns='http://schemas.microsoft.com/PowerShell/Snippets'>
+        <Snippet Version='1.0.0'>
+            <Header>
+                <Title>DSC-Domain_Join_Computer</Title>
+                <Description>Join a computer to AD with DSC</Description>
+                <Author></Author>
+                <SnippetTypes>
+                    <SnippetType>Expansion</SnippetType>
+                </SnippetTypes>
+            </Header>
+
+            <Code>
+                <Script Language='PowerShell' CaretOffset='0'>
+                    <![CDATA[# Install the xNetworking and xComputerManagement module
+Install-Module xNetworking         -RequiredVersion 2.11.0.0
+Install-Module xComputerManagement -RequiredVersion 1.8.0.0
+
+# Configuration data block
+$ConfigurationData = @{   
+    AllNodes = @(        
+                @{     
+                    NodeName                    = "localhost"
+                    ComputerName                = "<ComputerName>"
+                    PSDscAllowPlainTextPassword = $true
+                    PSDscAllowDomainUser        = $true
+                    Role                        = "DomainMember" 
+                    DomainName                  = "cfg.filemilk.net"
+                    InterfaceAlias              = "Ethernet"                 
+                    AddressFamily               = "Ipv4"
+                    DnsServerAddress            = @(
+                                                     "192.168.1.2"
+                                                  )
+                } 
+            )  
+    } 
+
+# Script block
+Configuration MemberServer 
+{ 
+    param 
+    (
+        [Parameter(Mandatory)] 
+        [pscredential]$Credential
+    ) 
+ 
+    Import-DscResource –ModuleName PSDesiredStateConfiguration
+    Import-DscResource -ModuleName xComputerManagement -ModuleVersion 1.8.0.0
+    Import-DscResource -ModuleName xNetworking -ModuleVersion 2.11.0.0
+ 
+    Node $AllNodes.Where{$_.Role -eq "DomainMember"}.Nodename
+    {
+
+        LocalConfigurationManager            
+        {            
+            ActionAfterReboot  = "ContinueConfiguration"            
+            ConfigurationMode  = "ApplyOnly"           
+            RebootNodeIfNeeded = $true            
+        }
+
+        xDnsServerAddress DnsServerAddress 
+        { 
+            Address        = $Node.DnsServerAddress 
+            InterfaceAlias = $Node.InterfaceAlias 
+            AddressFamily  = $Node.AddressFamily 
+        } 
+
+        xComputer JoinDomain 
+        {
+            Name          = $Node.ComputerName
+            DomainName    = $Node.DomainName
+            Credential    = $Credential
+            DependsOn     = "[xDnsServerAddress]DnsServerAddress" 
+        } 
+    } 
+}
+
+# Create MOF job
+MemberServer -OutputPath $env:TEMP -ConfigurationData $ConfigurationData -Credential (Get-Credential -UserName cfg\administrator -Message "Domain Admin/Join Credential")
+
+# Configure the DSCLocalConfigurationManager
+Set-DSCLocalConfigurationManager -Path $env:TEMP –Verbose  
+
+# Run the MOF job
+Start-DscConfiguration -Path $env:TEMP -Wait -Force -Verbose]]>
+                </Script>
+            </Code>
+
+    </Snippet>
+</Snippets>
+

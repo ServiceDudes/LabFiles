@@ -1,0 +1,1 @@
+\\addlevel.local\root\Users\[USERNAME]\Documents\WindowsPowerShell\Snippets

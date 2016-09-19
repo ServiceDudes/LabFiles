@@ -1,0 +1,72 @@
+﻿<?xml version='1.0' encoding='utf-8' ?>
+    <Snippets  xmlns='http://schemas.microsoft.com/PowerShell/Snippets'>
+        <Snippet Version='1.0.0'>
+            <Header>
+                <Title>DSC-Lab_Modules_Hash_Table</Title>
+                <Description>All labb modules hash table</Description>
+                <Author></Author>
+                <SnippetTypes>
+                    <SnippetType>Expansion</SnippetType>
+                </SnippetTypes>
+            </Header>
+
+            <Code>
+                <Script Language='PowerShell' CaretOffset='0'>
+                    <![CDATA[# All modules used in this lab in array of hash tables
+$Modules =
+@(
+    @{
+        Name            = "cChoco"
+        RequiredVersion = "2.2.0.66"
+    },
+    @{
+        Name            = "Pester"
+        RequiredVersion = "3.4.3"
+    },
+    @{
+        Name            = "xActiveDirectory"
+        RequiredVersion = "2.13.0.0"
+    },
+    @{
+        Name            = "xAdcsDeployment"
+        RequiredVersion = "1.0.0.0"
+    },
+    @{
+        Name            = "xCertificate"
+        RequiredVersion = "2.1.0.0"
+    },
+    @{
+        Name            = "xComputerManagement"
+        RequiredVersion = "1.8.0.0"
+    }
+    @{
+        Name            = "xDNSServer"
+        RequiredVersion = "1.7.0.0"
+    },
+    @{
+        Name            = "xDscDiagnostics"
+        RequiredVersion = "2.4.0.0"
+    },
+    @{
+        Name            = "xNetworking"
+        RequiredVersion = "2.11.0.0"
+    },
+    @{
+        Name            = "xPSDesiredStateConfiguration"
+        RequiredVersion = "3.13.0.0"
+    },
+    @{
+        Name            = "xSmbShare"
+        RequiredVersion = "1.1.0.0"
+    },
+    @{
+        Name            = "xWebAdministration"
+        RequiredVersion = "1.13.0.0"
+    }
+)]]>
+                </Script>
+            </Code>
+
+    </Snippet>
+</Snippets>
+
